@@ -1,4 +1,3 @@
-// src/CircleSumGame.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
@@ -9,8 +8,10 @@ const INNER_R_FILL = 45;
 const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
 const GAP = 4;
-const CYCLE_TIME = 15000; // 15s
-const MAX_CYCLES = 3;
+// Ustawienia konfigurowalne
+const DEFAULT_CYCLE_TIME = 5000; // ms
+const DEFAULT_MIN_PERCENT = 1; // minimalna wartość segmentu
+const DEFAULT_ROTATION_SPEED = 8; // sekundy na obrót
 
 const COLOR_IDLE = '#2a002a';
 const COLOR_ACTIVE = '#c21065';
@@ -45,7 +46,11 @@ function shuffleArray(array) {
   return array;
 }
 
-export default function CircleSumGame() {
+export default function CircleSumGame({
+  cycleTime = DEFAULT_CYCLE_TIME,
+  minPercent = DEFAULT_MIN_PERCENT,
+  rotationSpeed = DEFAULT_ROTATION_SPEED,
+}) {
   const [segs, setSegs] = useState([]);
   const [values, setValues] = useState([]);
   const [sel, setSel] = useState(Array(TOTAL).fill(false));
@@ -74,7 +79,9 @@ export default function CircleSumGame() {
     for (let i = 0; i < subsetCount - 1; i++) cuts.push(Math.random() * 100);
     cuts.push(100);
     cuts.sort((a, b) => a - b);
-    const base = cuts.slice(1).map((c, i) => Math.floor(c - cuts[i]));
+    const base = cuts
+      .slice(1)
+      .map((c, i) => Math.max(minPercent, Math.floor(c - cuts[i])));
     let leftover = 100 - base.reduce((a, b) => a + b, 0);
     const idxs = shuffleArray(base.map((_, i) => i));
     for (let i = 0; i < leftover; i++) base[idxs[i % idxs.length]]++;
@@ -87,7 +94,7 @@ export default function CircleSumGame() {
       for (let i = 0; i < extrasCount - 1; i++) cuts2.push(Math.random() * maxExtra);
       cuts2.push(maxExtra);
       cuts2.sort((a, b) => a - b);
-      const base2 = cuts2.slice(1).map((c, i) => Math.floor(c - cuts2[i]));
+      const base2 = cuts2.map((c, i) => Math.floor(c - (cuts2[i - 1] || 0)));
       let leftover2 = maxExtra - base2.reduce((a, b) => a + b, 0);
       const idxs2 = shuffleArray(base2.map((_, i) => i));
       for (let i = 0; i < leftover2; i++) base2[idxs2[i % idxs2.length]]++;
@@ -112,16 +119,16 @@ export default function CircleSumGame() {
     const start = Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
-      setProgress(Math.min(elapsed / CYCLE_TIME, 1));
-      if (elapsed < CYCLE_TIME) {
+      setProgress(Math.min(elapsed / cycleTime, 1));
+      if (elapsed < cycleTime) {
         progressRef.current = requestAnimationFrame(tick);
-      } else if (!correct) {
+      } else {
         setFailed(true);
       }
     };
     progressRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(progressRef.current);
-  }, [cycle]);
+  }, [cycle, cycleTime]);
 
   useEffect(() => {
     const currentSum = sel.reduce((acc, v, i) => acc + (v ? values[i] : 0), 0);
@@ -161,7 +168,7 @@ export default function CircleSumGame() {
           viewBox="0 0 300 300"
           className="absolute inset-0"
           animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
+          transition={{ repeat: Infinity, duration: rotationSpeed, ease: 'linear' }}
           style={{ originX: '50%', originY: '50%' }}
         >
           {segs.map((s, i) => {
@@ -185,9 +192,7 @@ export default function CircleSumGame() {
 
           <circle cx={150} cy={150} r={INNER_R_FILL} fill="#444" />
           <circle
-            cx={150}
-            cy={150}
-            r={(Math.min(sum, MAX_TOTAL) / 100) * INNER_R_FILL}
+            cx={150} cy={150} r={(Math.min(sum, MAX_TOTAL) / 100) * INNER_R_FILL}
             fill={correct ? COLOR_OK : isBad ? COLOR_BAD : COLOR_ACTIVE}
             className="transition-all duration-300"
           />
@@ -204,8 +209,7 @@ export default function CircleSumGame() {
           return (
             <div key={i} className="relative flex-1 h-full border-l border-white/20 last:border-r">
               <motion.div
-                key={`${cycle}-${i}`}
-                initial={{ backgroundColor: bg }}
+                key={`${cycle}-${i}`}                initial={{ backgroundColor: bg }}
                 animate={{
                   width: cycle === i ? `${progress * 100}%` : completedCycles.includes(i) ? '100%' : '0%',
                   backgroundColor: bg,
