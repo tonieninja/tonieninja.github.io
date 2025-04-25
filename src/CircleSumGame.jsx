@@ -161,81 +161,98 @@ export default function CircleSumGame() {
 
   return (
     <div className="flex flex-col items-center justify-center h-screen overflow-hidden bg-[#111] text-white">
-      <h1 className="text-5xl font-bold mb-4">
+      <h1 className="text-4xl font-bold mb-2">
         CIRCLE <span className="text-pink-500">SUM</span>
       </h1>
-      <p className="text-xl text-white/70 mb-8">
-        Pamiętaj wartości – znikają po 2 s!
+      <p className="text-lg text-white/70 mb-6">
+        Dopasuj kombinację dającą dokładnie 100%
       </p>
 
-      <div className="relative w-[400px] h-[400px] mb-8">
+      <div className="relative w-[400px] h-[400px]"> // 280px
         <motion.svg
-          viewBox="0 0 400 400"
+          viewBox="0 0 400 400" // 300 300 
           className="absolute inset-0"
           animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: spinDur, ease: 'linear' }}
-          style={{ originX:'50%', originY:'50%' }}
+          transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
+          style={{ originX: '50%', originY: '50%' }}
         >
-          {segs.map((s,i)=>{
-            const mid=(s.start+s.end)/2;
-            const rad=(mid-90)*(Math.PI/180);
-            const mv = sel[i]?OFFSET_BASE*(isBad?1.5:1):0;
-            const dx=Math.cos(rad)*mv, dy=Math.sin(rad)*mv;
+          {segs.map((s, i) => {
+            const mid = (s.start + s.end) / 2;
+            const rad = (mid - 90) * (Math.PI / 180);
+            const move = sel[i]
+              ? OFFSET_BASE * (isBad ? 1.5 : 1)
+              : 0;
+            const dx = Math.cos(rad) * move;
+            const dy = Math.sin(rad) * move;
+
             return (
-              <path key={i}
-                d={describeDonutSlice(200,130,200,130,s.start%360,s.end%360)}
-                fill={sel[i]?(correct?COLOR_OK:COLOR_ACTIVE):COLOR_IDLE}
-                onClick={()=>toggle(i)}
+              <path
+                key={i}
+                d={describeDonutSlice(150, 150, OUTER_R, INNER_R_SEG, s.start % 360, s.end % 360)}
+                fill={sel[i]
+                  ? (correct ? COLOR_OK : COLOR_ACTIVE)
+                  : COLOR_IDLE}
+                onClick={() => toggle(i)}
                 className="cursor-pointer hover:opacity-80 transition-transform"
-                style={{transform:`translate(${dx}px,${dy}px)`}}
+                style={{ transform: `translate(${dx}px,${dy}px)` }}
               />
             );
           })}
-          <circle cx={200} cy={200} r={70} fill="#444" />
-          <circle cx={200} cy={200}
-            r={(Math.min(sum,MAX_TOTAL)/100)*70}
-            fill={correct?COLOR_OK:(isBad?COLOR_BAD:COLOR_ACTIVE)}
+
+          <circle cx={150} cy={150} r={INNER_R_FILL} fill="#444" />
+          <circle
+            cx={150}
+            cy={150}
+            r={(Math.min(sum, MAX_TOTAL) / 100) * INNER_R_FILL}
+            fill={correct ? COLOR_OK : isBad ? COLOR_BAD : COLOR_ACTIVE}
             className="transition-all duration-300"
           />
-          {/* wartości */}
-          {showValues && segs.map((s,i)=>{
-            const mid=(s.start+s.end)/2;
-            const rad=(mid-90)*(Math.PI/180);
-            const x=200+Math.cos(rad)*160;
-            const y=200+Math.sin(rad)*160;
-            return (
-              <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
-                className="text-white font-bold select-none" style={{fontSize: '1rem'}}>
-                {values[i]}
-              </text>
-            );
-          })}
         </motion.svg>
       </div>
 
-      <div className="w-[400px] h-8 bg-white/10 rounded-full overflow-hidden flex mb-6">
-        {Array(MAX_CYCLES).fill(0).map((_,i)=>{
-          const bg = failed
+      <div className="mt-6 w-[280px] h-6 bg-white/10 rounded-full overflow-hidden flex">
+        {Array(MAX_CYCLES).fill(0).map((_, i) => {
+          const bgColor = failed
             ? COLOR_BAD
             : completedCycles.includes(i)
             ? COLOR_OK
             : COLOR_ACTIVE;
-          const w = cycle===i
-            ? `${progress*100}%`
-            : completedCycles.includes(i)
-            ? '100%' : '0%';
+
           return (
-            <div key={i} className="relative flex-1 h-full border-l border-white/20 last:border-r">
-              <motion.div key={`${cycle}-${i}`}
-                initial={{backgroundColor:bg}} animate={{width:w, backgroundColor:bg}}
-                transition={{duration:0.2}} className="absolute left-0 top-0 h-full"/>
+            <div
+              key={i}
+              className="relative flex-1 h-full border-l border-white/20 last:border-r"
+            >
+              <motion.div
+                key={`${cycle}-${i}`}
+                initial={{ backgroundColor: bgColor }}
+                animate={{
+                  width:
+                    cycle === i
+                      ? `${progress * 100}%`
+                      : completedCycles.includes(i)
+                      ? '100%'
+                      : '0%',
+                  backgroundColor: bgColor,
+                }}
+                transition={{ duration: 0.2 }}
+                className="absolute left-0 top-0 h-full"
+              />
             </div>
           );
         })}
       </div>
 
-      {failed && <p className="text-2xl text-red-500 font-bold animate-pulse">HACK NIEZALICZONY</p>}
-      {success && <p className="text-2xl text-green-500 font-bold animate-pulse">HACK ZALICZONY</p>}
+      {failed && (
+        <p className="mt-4 text-xl text-red-500 font-bold animate-pulse">
+          HACK NIEZALICZONY
+        </p>
+      )}
+      {success && (
+        <p className="mt-4 text-xl text-green-500 font-bold animate-pulse">
+          HACK ZALICZONY
+        </p>
+      )}
     </div>
   );
 }
