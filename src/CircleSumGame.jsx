@@ -1,16 +1,17 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
-const TOTAL = 6;
-const OUTER_R = 280;
-const INNER_R_SEG = 180;
-const INNER_R_FILL = 90;
+const TOTAL = 4;
+const OUTER_R = 140; // 140
+const INNER_R_SEG = 90; //130 
+const INNER_R_FILL = 45; //70 
+const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
 const GAP = 4;
-const CYCLE_TIME_BASE = 5000; // 5 sec
+const CYCLE_TIME = 5000; // 5s
 const MAX_CYCLES = 3;
 
-// Kolory
 const COLOR_IDLE = '#2a002a';
 const COLOR_ACTIVE = '#c21065';
 const COLOR_OK = '#00C853';
@@ -36,13 +37,12 @@ function describeDonutSlice(cx, cy, rOuter, rInner, startDeg, endDeg) {
   ].join(' ');
 }
 
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [array[i], array[j]] = [array[j], array[i]];
   }
-  return a;
+  return array;
 }
 
 export default function CircleSumGame() {
@@ -59,145 +59,183 @@ export default function CircleSumGame() {
   const [success, setSuccess] = useState(false);
   const progressRef = useRef(null);
 
-  // Generuje segmenty + wartości (±)
   const setupGame = () => {
+    // resetujemy failure przy starcie każdej rundy
     setFailed(false);
     setCorrect(false);
     setProgress(0);
-    setSum(0);
-    setIsBad(false);
 
-    // segmenty
+    // generujemy segmenty
     const offset = Math.random() * 360;
     const slice = 360 / TOTAL;
     const segments = Array.from({ length: TOTAL }, (_, i) => ({
-      start: offset + i * slice + GAP/2,
-      end: offset + (i+1)*slice - GAP/2
+      start: offset + i * slice + GAP / 2,
+      end: offset + (i + 1) * slice - GAP / 2,
     }));
     setSegs(segments);
 
-    // wartości: 100% i + extras + losowe ujemne
-    let baseVals = [];
-    let cuts = [0];
-    for (let i=0;i<TOTAL-1;i++) cuts.push(Math.random()*200-100);
+    // generujemy wartości
+    const subsetCount = Math.floor(Math.random() * TOTAL) + 1;
+    const cuts = [0];
+    for (let i = 0; i < subsetCount - 1; i++) cuts.push(Math.random() * 100);
     cuts.push(100);
-    cuts.sort((a,b)=>a-b);
-    for (let i=1;i<cuts.length;i++) {
-      baseVals.push(Math.floor(cuts[i]-cuts[i-1]));
+    cuts.sort((a, b) => a - b);
+    const base = cuts.slice(1).map((c, i) => Math.floor(c - cuts[i]));
+    let leftover = 100 - base.reduce((a, b) => a + b, 0);
+    const idxs = shuffleArray(base.map((_, i) => i));
+    for (let i = 0; i < leftover; i++) base[idxs[i % idxs.length]]++;
+
+    const extrasCount = TOTAL - subsetCount;
+    const extras = [];
+    if (extrasCount > 0) {
+      const maxExtra = MAX_TOTAL - 100;
+      const cuts2 = [0];
+      for (let i = 0; i < extrasCount - 1; i++) cuts2.push(Math.random() * maxExtra);
+      cuts2.push(maxExtra);
+      cuts2.sort((a, b) => a - b);
+      const base2 = cuts2.slice(1).map((c, i) => Math.floor(c - cuts2[i]));
+      let leftover2 = maxExtra - base2.reduce((a, b) => a + b, 0);
+      const idxs2 = shuffleArray(base2.map((_, i) => i));
+      for (let i = 0; i < leftover2; i++) base2[idxs2[i % idxs2.length]]++;
+      extras.push(...base2);
     }
-    setValues(shuffleArray(baseVals));
+
+    setValues(shuffleArray([...base, ...extras]));
     setSel(Array(TOTAL).fill(false));
+    setSum(0);
+    setIsBad(false);
   };
 
-  // start rundy
+  // Start nowej rundy
   useEffect(() => {
     if (cycle < MAX_CYCLES && !success) setupGame();
   }, [cycle]);
 
-  // timer, zmienia się co cykl i gdy poprawne
+  // Timer każdej rundy, powiązany z 'cycle' i 'correct'
   useEffect(() => {
     if (progressRef.current) cancelAnimationFrame(progressRef.current);
-    const duration = Math.max(5000, CYCLE_TIME_BASE - cycle*3000);
+
     const start = Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
-      setProgress(Math.min(elapsed/duration,1));
-      if (elapsed < duration) {
+      setProgress(Math.min(elapsed / CYCLE_TIME, 1));
+
+      if (elapsed < CYCLE_TIME) {
         progressRef.current = requestAnimationFrame(tick);
       } else if (!correct) {
+        // upłynął czas bez poprawnej odpowiedzi
         setFailed(true);
       }
     };
+
     progressRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(progressRef.current);
   }, [cycle, correct]);
 
-  // liczymy sumę
+  // Sprawdzanie sumy, przejście do następnej rundy lub zakończenie
   useEffect(() => {
-    const s = sel.reduce((acc,v,i)=>acc + (v?values[i]:0),0);
-    setSum(s);
-    setIsBad(s>100);
-    if (s===100 && !correct) {
+    const currentSum = sel.reduce((acc, v, i) => acc + (v ? values[i] : 0), 0);
+    setSum(currentSum);
+    setIsBad(currentSum > 100);
+
+    if (currentSum === 100 && !correct) {
       setCorrect(true);
       setTimeout(() => {
-        setCompletedCycles(prev=>{
-          const u=[...prev,cycle];
-          if(u.length===MAX_CYCLES) setSuccess(true);
-          return u;
+        setCompletedCycles(prev => {
+          const updated = [...prev, cycle];
+          if (updated.length === MAX_CYCLES) {
+            setSuccess(true);
+          }
+          return updated;
         });
-        setCycle(c=>c+1);
-      },1000);
+        setCycle(prev => prev + 1);
+      }, 1000);
     }
   }, [sel]);
 
   const toggle = i => {
     if (!correct && !failed) {
-      setSel(s=>s.map((v,j)=>j===i?!v:v));
+      setSel(prev => prev.map((v, idx) => (idx === i ? !v : v)));
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-[600px] w-[600px] bg-[#111] rounded-2xl shadow-2xl overflow-hidden">
-      <h1 className="text-5xl font-extrabold mb-4 text-white drop-shadow-lg">
+    <div className="flex flex-col items-center justify-center h-screen overflow-hidden bg-[#111] text-white">
+      <h1 className="text-5xl font-bold mb-4">
         CIRCLE <span className="text-pink-500">SUM</span>
       </h1>
-      <p className="text-xl text-white/70 mb-8">Dopasuj do 100% z ± wartości!</p>
+      <p className="text-xl text-white/70 mb-8">
+        Pamiętaj wartości – znikają po 2 s!
+      </p>
 
-      <div className="relative w-[560px] h-[560px]">
+      <div className="relative w-[400px] h-[400px] mb-8">
         <motion.svg
-          viewBox="0 0 600 600"
+          viewBox="0 0 400 400"
           className="absolute inset-0"
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: spinDur, ease: 'linear' }}
+          style={{ originX:'50%', originY:'50%' }}
         >
           {segs.map((s,i)=>{
             const mid=(s.start+s.end)/2;
             const rad=(mid-90)*(Math.PI/180);
-            const move = sel[i]?OFFSET_BASE*1.2:0;
-            const dx=Math.cos(rad)*move, dy=Math.sin(rad)*move;
+            const mv = sel[i]?OFFSET_BASE*(isBad?1.5:1):0;
+            const dx=Math.cos(rad)*mv, dy=Math.sin(rad)*mv;
             return (
-              <motion.path
-                key={i}
-                d={describeDonutSlice(300,300,OUTER_R,INNER_R_SEG,s.start,s.end)}
+              <path key={i}
+                d={describeDonutSlice(200,130,200,130,s.start%360,s.end%360)}
                 fill={sel[i]?(correct?COLOR_OK:COLOR_ACTIVE):COLOR_IDLE}
                 onClick={()=>toggle(i)}
-                className="cursor-pointer hover:opacity-80 transition-transform drop-shadow-md"
+                className="cursor-pointer hover:opacity-80 transition-transform"
                 style={{transform:`translate(${dx}px,${dy}px)`}}
-                animate={{rotate:[0,360]}}
-                transition={{repeat:Infinity, duration:6+i, ease:'linear'}}
               />
             );
           })}
-          <circle cx={300} cy={300} r={INNER_R_FILL} fill="#444" className="drop-shadow-inner"/>
-          <motion.circle
-            cx={300} cy={300}
-            r={(Math.min(sum,MAX_TOTAL)/100)*INNER_R_FILL}
+          <circle cx={200} cy={200} r={70} fill="#444" />
+          <circle cx={200} cy={200}
+            r={(Math.min(sum,MAX_TOTAL)/100)*70}
             fill={correct?COLOR_OK:(isBad?COLOR_BAD:COLOR_ACTIVE)}
-            className="transition-all duration-500 drop-shadow-inner"
+            className="transition-all duration-300"
           />
+          {/* wartości */}
+          {showValues && segs.map((s,i)=>{
+            const mid=(s.start+s.end)/2;
+            const rad=(mid-90)*(Math.PI/180);
+            const x=200+Math.cos(rad)*160;
+            const y=200+Math.sin(rad)*160;
+            return (
+              <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+                className="text-white font-bold select-none" style={{fontSize: '1rem'}}>
+                {values[i]}
+              </text>
+            );
+          })}
         </motion.svg>
       </div>
 
-      <div className="mt-6 w-full h-6 bg-white/10 rounded-full overflow-hidden flex">
+      <div className="w-[400px] h-8 bg-white/10 rounded-full overflow-hidden flex mb-6">
         {Array(MAX_CYCLES).fill(0).map((_,i)=>{
-          const bg = failed?COLOR_BAD:(completedCycles.includes(i)?COLOR_OK:COLOR_ACTIVE);
+          const bg = failed
+            ? COLOR_BAD
+            : completedCycles.includes(i)
+            ? COLOR_OK
+            : COLOR_ACTIVE;
+          const w = cycle===i
+            ? `${progress*100}%`
+            : completedCycles.includes(i)
+            ? '100%' : '0%';
           return (
-            <div key={i} className="flex-1 h-full border-l border-white/20 last:border-r relative">
-              <motion.div
-                key={`${cycle}-${i}`}
-                initial={{backgroundColor:bg}}
-                animate={{
-                  width: cycle===i?`${progress*100}%`:(completedCycles.includes(i)?'100%':'0%'),
-                  backgroundColor:bg
-                }}
-                transition={{duration:0.3}}
-                className="absolute left-0 top-0 h-full"
-              />
+            <div key={i} className="relative flex-1 h-full border-l border-white/20 last:border-r">
+              <motion.div key={`${cycle}-${i}`}
+                initial={{backgroundColor:bg}} animate={{width:w, backgroundColor:bg}}
+                transition={{duration:0.2}} className="absolute left-0 top-0 h-full"/>
             </div>
           );
         })}
       </div>
 
-      {failed && <p className="mt-4 text-2xl text-red-500 font-bold animate-pulse drop-shadow-lg">HACK NIEZALICZONY</p>}
-      {success && <p className="mt-4 text-2xl text-green-500 font-bold animate-pulse drop-shadow-lg">HACK ZALICZONY!</p>}
+      {failed && <p className="text-2xl text-red-500 font-bold animate-pulse">HACK NIEZALICZONY</p>}
+      {success && <p className="text-2xl text-green-500 font-bold animate-pulse">HACK ZALICZONY</p>}
     </div>
   );
 }
