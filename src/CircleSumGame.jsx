@@ -3,13 +3,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 const TOTAL = 4;
-const OUTER_R = 140; // 140
-const INNER_R_SEG = 90; //130 
-const INNER_R_FILL = 45; //70 
+const OUTER_R = 140;
+const INNER_R_SEG = 90;
+const INNER_R_FILL = 45;
 const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
 const GAP = 4;
-const CYCLE_TIME = 5000; // 5s
+const CYCLE_TIME = 4500; // 5s
 const MAX_CYCLES = 3;
 
 const COLOR_IDLE = '#2a002a';
@@ -168,9 +168,9 @@ export default function CircleSumGame() {
         Dopasuj kombinację dającą dokładnie 100%
       </p>
 
-      <div className="relative w-[400px] h-[400px]"> // 280px
+      <div className="relative w-[280px] h-[280px]">
         <motion.svg
-          viewBox="0 0 400 400" // 300 300 
+          viewBox="0 0 300 300"
           className="absolute inset-0"
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
