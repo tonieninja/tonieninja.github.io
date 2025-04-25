@@ -1,4 +1,4 @@
-// CircleSumGame.jsx
+// src/CircleSumGame.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
@@ -93,8 +93,8 @@ export default function CircleSumGame() {
       for (let i = 0; i < leftover2; i++) base2[idxs2[i % idxs2.length]]++;
       extras.push(...base2);
     }
-    const all = shuffleArray([...base, ...extras]);
-    setValues(all);
+
+    setValues(shuffleArray([...base, ...extras]));
     setSel(Array(TOTAL).fill(false));
     setSum(0);
     setIsBad(false);
@@ -109,16 +109,14 @@ export default function CircleSumGame() {
     if (timerRef.current) clearTimeout(timerRef.current);
     if (progressRef.current) cancelAnimationFrame(progressRef.current);
 
-    let start = Date.now();
+    const start = Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
       setProgress(Math.min(elapsed / CYCLE_TIME, 1));
       if (elapsed < CYCLE_TIME) {
         progressRef.current = requestAnimationFrame(tick);
-      } else {
-        if (!correct) {
-          setFailed(true);
-        }
+      } else if (!correct) {
+        setFailed(true);
       }
     };
     progressRef.current = requestAnimationFrame(tick);
@@ -134,9 +132,7 @@ export default function CircleSumGame() {
       setTimeout(() => {
         setCompletedCycles(prev => {
           const updated = [...prev, cycle];
-          if (updated.length === MAX_CYCLES) {
-            setSuccess(true);
-          }
+          if (updated.length === MAX_CYCLES) setSuccess(true);
           return updated;
         });
         setCycle(prev => prev + 1);
@@ -145,14 +141,20 @@ export default function CircleSumGame() {
     }
   }, [sel]);
 
-  const toggle = i => correct || failed ? null : setSel(prev => prev.map((v, idx) => (idx === i ? !v : v)));
+  const toggle = i => {
+    if (!correct && !failed) {
+      setSel(prev => prev.map((v, idx) => (idx === i ? !v : v)));
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#111] text-white">
-      <h1 className="text-4xl font-bold mb-2">
+    <div className="flex flex-col items-center justify-center h-full bg-[#111]">
+      <h1 className="text-4xl font-bold mb-2 text-white">
         CIRCLE <span className="text-pink-500">SUM</span>
       </h1>
-      <p className="text-lg text-white/70 mb-6">Dopasuj kombinację dającą dokładnie 100%</p>
+      <p className="text-lg mb-6 text-white/70">
+        Dopasuj kombinację dającą dokładnie 100%
+      </p>
 
       <div className="relative w-[280px] h-[280px]">
         <motion.svg
@@ -193,31 +195,39 @@ export default function CircleSumGame() {
       </div>
 
       <div className="mt-6 w-[280px] h-6 bg-white/10 rounded-full overflow-hidden flex">
-        {Array(MAX_CYCLES).fill(0).map((_, i) => (
-          <div
-            key={i}
-            className="relative flex-1 h-full border-l border-white/20 last:border-r"
-          >
-            <motion.div
-              className="absolute left-0 top-0 h-full"
-              animate={{
-                width: cycle === i ? `${progress * 100}%` : completedCycles.includes(i) ? '100%' : '0%',
-                backgroundColor: failed ? COLOR_BAD : completedCycles.includes(i) ? COLOR_OK : 'white',
-              }}
-              transition={{ duration: 0.2 }}
-            />
-          </div>
-        ))}
+        {Array(MAX_CYCLES).fill(0).map((_, i) => {
+          const bg = failed
+            ? COLOR_BAD
+            : completedCycles.includes(i)
+            ? COLOR_OK
+            : COLOR_ACTIVE;
+          return (
+            <div key={i} className="relative flex-1 h-full border-l border-white/20 last:border-r">
+              <motion.div
+                key={`${cycle}-${i}`}
+                initial={{ backgroundColor: bg }}
+                animate={{
+                  width: cycle === i ? `${progress * 100}%` : completedCycles.includes(i) ? '100%' : '0%',
+                  backgroundColor: bg,
+                }}
+                transition={{ duration: 0.2 }}
+                className="absolute left-0 top-0 h-full"
+              />
+            </div>
+          );
+        })}
       </div>
 
       {failed && (
-        <p className="mt-4 text-xl text-red-500 font-bold animate-pulse">HACK NIEZALICZONY</p>
+        <p className="mt-4 text-xl text-red-500 font-bold animate-pulse">
+          HACK NIEZALICZONY
+        </p>
       )}
-
       {success && (
-        <p className="mt-4 text-xl text-green-500 font-bold animate-pulse">HACK ZALICZONY</p>
+        <p className="mt-4 text-xl text-green-500 font-bold animate-pulse">
+          HACK ZALICZONY
+        </p>
       )}
-
     </div>
   );
 }

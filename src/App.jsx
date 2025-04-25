@@ -1,8 +1,10 @@
 import React from 'react';
 import CircleSumGame from './CircleSumGame';
 
-function App() {
-  return <CircleSumGame />;
+export default function App() {
+  return (
+    <div className="h-screen overflow-hidden">
+      <CircleSumGame />
+    </div>
+  );
 }
-
-export default App;
