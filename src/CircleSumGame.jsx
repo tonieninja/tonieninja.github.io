@@ -2,17 +2,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 const TOTAL = 4;
-const OFFSET_BASE = 20;           
-const OUTER_R = 190;           
-const INNER_R_SEG = 120;        
-const INNER_R_FILL = 60;        
-const MARGIN = OFFSET_BASE;
-const SIZE = (OUTER_R + MARGIN) * 2;
-const CENTER = SIZE / 2;
-const GAP = 4;
-const CYCLE_TIME = 5000;
-const MAX_CYCLES = 3;
+const OUTER_R = 140;
+const INNER_R_SEG = 90;
+const INNER_R_FILL = 45;
+const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
+const GAP = 4;
+const CYCLE_TIME = 4500; 
+const MAX_CYCLES = 3; 
 
 const COLOR_IDLE = '#2a002a';
 const COLOR_ACTIVE = '#c21065';
@@ -47,13 +44,6 @@ function shuffleArray(array) {
   return array;
 }
 
-
-function randomPartition(n, total) {
-  const cuts = [0, ...Array.from({ length: n - 1 }, () => Math.random() * total), total]
-    .sort((a, b) => a - b);
-  return cuts.slice(1).map((v, i) => Math.floor(v - cuts[i]));
-}
-
 export default function CircleSumGame() {
   const [segs, setSegs] = useState([]);
   const [values, setValues] = useState([]);
@@ -81,15 +71,30 @@ export default function CircleSumGame() {
     }));
     setSegs(segments);
 
-
     const subsetCount = Math.floor(Math.random() * TOTAL) + 1;
-    const base = randomPartition(subsetCount, 100);
-
+    const cuts = [0];
+    for (let i = 0; i < subsetCount - 1; i++) cuts.push(Math.random() * 100);
+    cuts.push(100);
+    cuts.sort((a, b) => a - b);
+    const base = cuts.slice(1).map((c, i) => Math.floor(c - cuts[i]));
+    let leftover = 100 - base.reduce((a, b) => a + b, 0);
+    const idxs = shuffleArray(base.map((_, i) => i));
+    for (let i = 0; i < leftover; i++) base[idxs[i % idxs.length]]++;
 
     const extrasCount = TOTAL - subsetCount;
-    const extras = extrasCount > 0
-      ? randomPartition(extrasCount, MAX_TOTAL - 100)
-      : [];
+    const extras = [];
+    if (extrasCount > 0) {
+      const maxExtra = MAX_TOTAL - 100;
+      const cuts2 = [0];
+      for (let i = 0; i < extrasCount - 1; i++) cuts2.push(Math.random() * maxExtra);
+      cuts2.push(maxExtra);
+      cuts2.sort((a, b) => a - b);
+      const base2 = cuts2.slice(1).map((c, i) => Math.floor(c - cuts2[i]));
+      let leftover2 = maxExtra - base2.reduce((a, b) => a + b, 0);
+      const idxs2 = shuffleArray(base2.map((_, i) => i));
+      for (let i = 0; i < leftover2; i++) base2[idxs2[i % idxs2.length]]++;
+      extras.push(...base2);
+    }
 
     setValues(shuffleArray([...base, ...extras]));
     setSel(Array(TOTAL).fill(false));
@@ -103,16 +108,19 @@ export default function CircleSumGame() {
 
   useEffect(() => {
     if (progressRef.current) cancelAnimationFrame(progressRef.current);
+
     const start = Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
       setProgress(Math.min(elapsed / CYCLE_TIME, 1));
+
       if (elapsed < CYCLE_TIME) {
         progressRef.current = requestAnimationFrame(tick);
       } else if (!correct) {
         setFailed(true);
       }
     };
+
     progressRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(progressRef.current);
   }, [cycle, correct]);
@@ -127,7 +135,9 @@ export default function CircleSumGame() {
       setTimeout(() => {
         setCompletedCycles(prev => {
           const updated = [...prev, cycle];
-          if (updated.length === MAX_CYCLES) setSuccess(true);
+          if (updated.length === MAX_CYCLES) {
+            setSuccess(true);
+          }
           return updated;
         });
         setCycle(prev => prev + 1);
@@ -141,63 +151,69 @@ export default function CircleSumGame() {
     }
   };
 
+  const handleRetry = () => {
+    setCycle(0);
+    setCompletedCycles([]);
+    setSuccess(false);
+    setupGame();
+  };
+
+  const handleContinue = () => {
+    setCycle(prev => prev + 1);
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-[#111] text-white">
-      <h1 className="text-5xl font-bold mb-4">
+    <div className="flex flex-col items-center justify-center h-screen overflow-hidden bg-[#111] text-white">
+      <h1 className="text-4xl font-bold mb-2">
         CIRCLE <span className="text-pink-500">SUM</span>
       </h1>
-      <p className="text-xl text-white/70 mb-8">
+      <p className="text-lg text-white/70 mb-6">
         Dopasuj kombinację dającą dokładnie 100%
       </p>
 
-      <div className="relative" style={{ width: SIZE, height: SIZE }}>
+      <div className="relative w-[280px] h-[280px]">
         <motion.svg
-          viewBox={`0 0 ${SIZE} ${SIZE}`} 
+          viewBox="0 0 300 300"
           className="absolute inset-0"
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 8, ease: 'linear' }}
           style={{ originX: '50%', originY: '50%' }}
         >
-          {}
-          <circle cx={CENTER} cy={CENTER} r={INNER_R_FILL} fill="#444" />
-          <circle
-            cx={CENTER}
-            cy={CENTER}
-            r={(Math.min(sum, MAX_TOTAL) / 100) * INNER_R_FILL}
-            fill={correct ? COLOR_OK : isBad ? COLOR_BAD : COLOR_ACTIVE}
-            className="transition-all duration-300"
-          />
-
-          {}
           {segs.map((s, i) => {
             const mid = (s.start + s.end) / 2;
             const rad = (mid - 90) * (Math.PI / 180);
-            const move = sel[i] ? OFFSET_BASE * (isBad ? 1.5 : 1) : 0;
+            const move = sel[i]
+              ? OFFSET_BASE * (isBad ? 1.5 : 1)
+              : 0;
             const dx = Math.cos(rad) * move;
             const dy = Math.sin(rad) * move;
 
             return (
               <path
                 key={i}
-                d={describeDonutSlice(
-                  CENTER,
-                  CENTER,
-                  OUTER_R,
-                  INNER_R_SEG,
-                  s.start % 360,
-                  s.end % 360
-                )}
-                fill={sel[i] ? (correct ? COLOR_OK : COLOR_ACTIVE) : COLOR_IDLE}
+                d={describeDonutSlice(150, 150, OUTER_R, INNER_R_SEG, s.start % 360, s.end % 360)}
+                fill={sel[i]
+                  ? (correct ? COLOR_OK : COLOR_ACTIVE)
+                  : COLOR_IDLE}
                 onClick={() => toggle(i)}
                 className="cursor-pointer hover:opacity-80 transition-transform"
                 style={{ transform: `translate(${dx}px,${dy}px)` }}
               />
             );
           })}
+
+          <circle cx={150} cy={150} r={INNER_R_FILL} fill="#444" />
+          <circle
+            cx={150}
+            cy={150}
+            r={(Math.min(sum, MAX_TOTAL) / 100) * INNER_R_FILL}
+            fill={correct ? COLOR_OK : isBad ? COLOR_BAD : COLOR_ACTIVE}
+            className="transition-all duration-300"
+          />
         </motion.svg>
       </div>
 
-      <div className="mt-8 w-[80%] max-w-xl h-6 bg-white/10 rounded-full overflow-hidden flex">
+      <div className="mt-6 w-[280px] h-6 bg-white/10 rounded-full overflow-hidden flex">
         {Array(MAX_CYCLES).fill(0).map((_, i) => {
           const bgColor = failed
             ? COLOR_BAD
@@ -231,14 +247,31 @@ export default function CircleSumGame() {
       </div>
 
       {failed && (
-        <p className="mt-6 text-2xl text-red-500 font-bold animate-pulse">
-          HACK NIEZALICZONY
-        </p>
+        <div className="flex flex-col items-center mt-4">
+          <p className="text-xl text-red-500 font-bold animate-pulse">
+            HACK NIEZALICZONY
+          </p>
+          <button
+            onClick={handleRetry}
+            className="mt-2 px-4 py-2 bg-pink-600 rounded-2xl shadow-lg hover:bg-pink-700 transition"
+          >
+            Spróbuj od nowa
+          </button>
+        </div>
       )}
+
       {success && (
-        <p className="mt-6 text-2xl text-green-500 font-bold animate-pulse">
-          HACK ZALICZONY
-        </p>
+        <div className="flex flex-col items-center mt-4">
+          <p className="text-xl text-green-500 font-bold animate-pulse">
+            HACK ZALICZONY
+          </p>
+          <button
+            onClick={handleContinue}
+            className="mt-2 px-4 py-2 bg-green-600 rounded-2xl shadow-lg hover:bg-green-700 transition"
+          >
+            Kontynuuj
+          </button>
+        </div>
       )}
     </div>
   );
