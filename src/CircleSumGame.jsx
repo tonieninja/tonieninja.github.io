@@ -1,4 +1,4 @@
-// CircleSumGame.jsx
+// src/CircleSumGame.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 
@@ -9,7 +9,7 @@ const INNER_R_FILL = 45;
 const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
 const GAP = 4;
-const CYCLE_TIME = 15000; // 15s
+const CYCLE_TIME = 5000; // 15s
 const MAX_CYCLES = 3;
 
 const COLOR_IDLE = '#2a002a';
@@ -57,10 +57,15 @@ export default function CircleSumGame() {
   const [completedCycles, setCompletedCycles] = useState([]);
   const [failed, setFailed] = useState(false);
   const [success, setSuccess] = useState(false);
-  const timerRef = useRef(null);
   const progressRef = useRef(null);
 
   const setupGame = () => {
+    // resetujemy failure przy starcie każdej rundy
+    setFailed(false);
+    setCorrect(false);
+    setProgress(0);
+
+    // generujemy segmenty
     const offset = Math.random() * 360;
     const slice = 360 / TOTAL;
     const segments = Array.from({ length: TOTAL }, (_, i) => ({
@@ -69,7 +74,7 @@ export default function CircleSumGame() {
     }));
     setSegs(segments);
 
-    // generowanie wartości tak jak wcześniej...
+    // generujemy wartości
     const subsetCount = Math.floor(Math.random() * TOTAL) + 1;
     const cuts = [0];
     for (let i = 0; i < subsetCount - 1; i++) cuts.push(Math.random() * 100);
@@ -99,45 +104,51 @@ export default function CircleSumGame() {
     setSel(Array(TOTAL).fill(false));
     setSum(0);
     setIsBad(false);
-    setCorrect(false);
   };
 
+  // Start nowej rundy
   useEffect(() => {
-    if (cycle < MAX_CYCLES && !failed && !success) setupGame();
+    if (cycle < MAX_CYCLES && !success) setupGame();
   }, [cycle]);
 
+  // Timer każdej rundy, powiązany z 'cycle' i 'correct'
   useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
     if (progressRef.current) cancelAnimationFrame(progressRef.current);
 
     const start = Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
       setProgress(Math.min(elapsed / CYCLE_TIME, 1));
+
       if (elapsed < CYCLE_TIME) {
         progressRef.current = requestAnimationFrame(tick);
       } else if (!correct) {
+        // upłynął czas bez poprawnej odpowiedzi
         setFailed(true);
       }
     };
+
     progressRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(progressRef.current);
-  }, [cycle]);
+  }, [cycle, correct]);
 
+  // Sprawdzanie sumy, przejście do następnej rundy lub zakończenie
   useEffect(() => {
     const currentSum = sel.reduce((acc, v, i) => acc + (v ? values[i] : 0), 0);
     setSum(currentSum);
     setIsBad(currentSum > 100);
-    if (currentSum === 100) {
+
+    if (currentSum === 100 && !correct) {
       setCorrect(true);
       setTimeout(() => {
         setCompletedCycles(prev => {
           const updated = [...prev, cycle];
-          if (updated.length === MAX_CYCLES) setSuccess(true);
+          if (updated.length === MAX_CYCLES) {
+            setSuccess(true);
+          }
           return updated;
         });
         setCycle(prev => prev + 1);
-        setProgress(0);
       }, 1000);
     }
   }, [sel]);
@@ -149,11 +160,13 @@ export default function CircleSumGame() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#111] text-white">
+    <div className="flex flex-col items-center justify-center h-screen overflow-hidden bg-[#111] text-white">
       <h1 className="text-4xl font-bold mb-2">
         CIRCLE <span className="text-pink-500">SUM</span>
       </h1>
-      <p className="text-lg text-white/70 mb-6">Dopasuj kombinację dającą dokładnie 100%</p>
+      <p className="text-lg text-white/70 mb-6">
+        Dopasuj kombinację dającą dokładnie 100%
+      </p>
 
       <div className="relative w-[280px] h-[280px]">
         <motion.svg
@@ -166,18 +179,22 @@ export default function CircleSumGame() {
           {segs.map((s, i) => {
             const mid = (s.start + s.end) / 2;
             const rad = (mid - 90) * (Math.PI / 180);
-            const multiplier = isBad ? 1.5 : 1;
-            const move = sel[i] ? OFFSET_BASE * multiplier : 0;
+            const move = sel[i]
+              ? OFFSET_BASE * (isBad ? 1.5 : 1)
+              : 0;
             const dx = Math.cos(rad) * move;
             const dy = Math.sin(rad) * move;
+
             return (
               <path
                 key={i}
                 d={describeDonutSlice(150, 150, OUTER_R, INNER_R_SEG, s.start % 360, s.end % 360)}
-                fill={sel[i] ? (correct ? COLOR_OK : COLOR_ACTIVE) : COLOR_IDLE}
+                fill={sel[i]
+                  ? (correct ? COLOR_OK : COLOR_ACTIVE)
+                  : COLOR_IDLE}
                 onClick={() => toggle(i)}
                 className="cursor-pointer hover:opacity-80 transition-transform"
-                style={{ transform: `translate(${dx}px, ${dy}px)` }}
+                style={{ transform: `translate(${dx}px,${dy}px)` }}
               />
             );
           })}
@@ -195,19 +212,28 @@ export default function CircleSumGame() {
 
       <div className="mt-6 w-[280px] h-6 bg-white/10 rounded-full overflow-hidden flex">
         {Array(MAX_CYCLES).fill(0).map((_, i) => {
-          const bg = failed
+          const bgColor = failed
             ? COLOR_BAD
             : completedCycles.includes(i)
             ? COLOR_OK
             : COLOR_ACTIVE;
+
           return (
-            <div key={i} className="relative flex-1 h-full border-l border-white/20 last:border-r">
+            <div
+              key={i}
+              className="relative flex-1 h-full border-l border-white/20 last:border-r"
+            >
               <motion.div
-                key={`${cycle}-${i}`}           
-                initial={{ backgroundColor: bg }}
+                key={`${cycle}-${i}`}
+                initial={{ backgroundColor: bgColor }}
                 animate={{
-                  width: cycle === i ? `${progress * 100}%` : completedCycles.includes(i) ? '100%' : '0%',
-                  backgroundColor: bg,
+                  width:
+                    cycle === i
+                      ? `${progress * 100}%`
+                      : completedCycles.includes(i)
+                      ? '100%'
+                      : '0%',
+                  backgroundColor: bgColor,
                 }}
                 transition={{ duration: 0.2 }}
                 className="absolute left-0 top-0 h-full"
@@ -218,10 +244,14 @@ export default function CircleSumGame() {
       </div>
 
       {failed && (
-        <p className="mt-4 text-xl text-red-500 font-bold animate-pulse">HACK NIEZALICZONY</p>
+        <p className="mt-4 text-xl text-red-500 font-bold animate-pulse">
+          HACK NIEZALICZONY
+        </p>
       )}
       {success && (
-        <p className="mt-4 text-xl text-green-500 font-bold animate-pulse">HACK ZALICZONY</p>
+        <p className="mt-4 text-xl text-green-500 font-bold animate-pulse">
+          HACK ZALICZONY
+        </p>
       )}
     </div>
   );
