@@ -8,10 +8,9 @@ const INNER_R_FILL = 45;
 const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
 const GAP = 4;
-// Ustawienia konfigurowalne
-const DEFAULT_CYCLE_TIME = 5000; // ms
-const DEFAULT_MIN_PERCENT = 1; // minimalna wartość segmentu
-const DEFAULT_ROTATION_SPEED = 8; // sekundy na obrót
+const DEFAULT_CYCLE_TIME = 5000;
+const DEFAULT_MIN_PERCENT = 1;
+const DEFAULT_ROTATION_SPEED = 8; 
 
 const COLOR_IDLE = '#2a002a';
 const COLOR_ACTIVE = '#c21065';
