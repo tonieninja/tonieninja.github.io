@@ -158,10 +158,6 @@ export default function CircleSumGame() {
     setupGame();
   };
 
-  const handleContinue = () => {
-    setCycle(prev => prev + 1);
-  };
-
   return (
     <div className="flex flex-col items-center justify-center h-screen overflow-hidden bg-[#111] text-white">
       <h1 className="text-4xl font-bold mb-2">
@@ -266,7 +262,7 @@ export default function CircleSumGame() {
             HACK ZALICZONY
           </p>
           <button
-            onClick={handleContinue}
+            onClick={handleRetry}
             className="mt-2 px-4 py-2 bg-green-600 rounded-2xl shadow-lg hover:bg-green-700 transition"
           >
             Kontynuuj
