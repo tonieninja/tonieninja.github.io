@@ -9,7 +9,7 @@ const INNER_R_FILL = 45;
 const OFFSET_BASE = 16;
 const MAX_TOTAL = 150;
 const GAP = 4;
-const CYCLE_TIME = 5000; // 5 seconds
+const CYCLE_TIME = 15000; // 15s
 const MAX_CYCLES = 3;
 
 const COLOR_IDLE = '#2a002a';
